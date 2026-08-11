@@ -9,6 +9,7 @@ Bienvenido al Día 5 del Plan Intensivo de Preparación Acelerada para Evaluaci�
 2. Dominar las estructuras principales de **Pandas**: `Series` y `DataFrames`.
 3. Dominar la indexación explícita e implícita (`loc` vs `iloc`) y filtros booleanos condicionales.
 4. Realizar agregaciones complejas con `groupby()` y uniones de estructuras con `merge()` y `concat()`.
+5. Dominar la manipulación vectorial de **Fechas (`.dt`)** y **Cadenas de Texto (`.str`)**.
 
 ---
 
@@ -115,3 +116,40 @@ df_saldos = pd.DataFrame({'cliente_id': [101, 102], 'saldo': [2500000, 45000]})
 # LEFT JOIN en Pandas
 df_merged = pd.merge(df_clientes, df_saldos, on='cliente_id', how='left')
 ```
+
+---
+
+### 5. Manipulación Vectorial de Cadenas (`.str`) y Fechas (`.dt`)
+
+#### A. Accesor de Cadenas (`.str`)
+Permite aplicar métodos de strings a toda una columna de Pandas de forma vectorizada:
+
+```python
+df_transacciones = pd.DataFrame({
+    'cliente': ['  juan perez ', 'MARIA GOMEZ', 'carlos benitez '],
+    'fecha_raw': ['2026-08-01', '2026-08-05', '2026-08-10']
+})
+
+# Limpieza de espacios y formateo a mayúsculas
+df_transacciones['cliente_limpio'] = df_transacciones['cliente'].str.strip().str.upper()
+
+# Filtrar clientes cuyo nombre contiene 'GOMEZ'
+df_gomez = df_transacciones[df_transacciones['cliente_limpio'].str.contains('GOMEZ', na=False)]
+```
+
+#### B. Accesor de Fechas (`.dt`)
+Para manipular fechas, primero se convierte la columna con `pd.to_datetime()` y luego se utilizan sus propiedades:
+
+```python
+# Convertir columna a datetime
+df_transacciones['fecha'] = pd.to_datetime(df_transacciones['fecha_raw'])
+
+# Extraer componentes de fecha
+df_transacciones['anio'] = df_transacciones['fecha'].dt.year
+df_transacciones['mes'] = df_transacciones['fecha'].dt.month
+df_transacciones['dia_nombre'] = df_transacciones['fecha'].dt.day_name()
+
+# Formatear fecha a string personalizado
+df_transacciones['fecha_formateada'] = df_transacciones['fecha'].dt.strftime('%d/%m/%Y')
+```
+

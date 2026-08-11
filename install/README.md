@@ -1,120 +1,212 @@
-# Guía de Instalación y Ejecución de SQL por Terminal (PowerShell)
+# Guía de Instalación y Ejecución con Microsoft SQL Server 2022 Express & sqlcmd
 
-Esta guía explica cómo instalar y configurar las herramientas necesarias para ejecutar consultas SQL de forma interactiva en la terminal PowerShell o ejecutar archivos de script `.sql` previamente programados.
+Esta guía detalla el procedimiento oficial para instalar, configurar y ejecutar consultas T-SQL utilizando **Microsoft SQL Server 2022 Express** y la herramienta oficial de línea de comandos **`sqlcmd`** desde la terminal PowerShell.
 
 ---
 
-## 1. Opciones de Herramientas para Terminal
+## 1. Stack Tecnológico de Trabajo
 
-Existen dos alternativas principales para trabajar con SQL desde la terminal en Windows:
-
-| Herramienta | Motor | Descripción / Caso de Uso |
+| Componente | Nombre | Descripción |
 | :--- | :--- | :--- |
-| **`sqlcmd`** | Microsoft SQL Server | Utilidad oficial de línea de comandos para T-SQL. Ideal para simular el entorno oficial Itaú. |
-| **`sqlite3`** | SQLite | Motor ligero sin servidor. Ideal para pruebas rápidas y locales sin configurar servicios. |
-| **`run_sql.py`** | Python + SQLite/DuckDB | Script de soporte incluido en este repositorio para ejecutar archivos `.sql` directamente con Python. |
+| **Motor SQL** | Microsoft SQL Server 2022 Express | Motor relacional T-SQL oficial, 100% gratuito y compatible con los entornos corporativos Itaú / Azure. |
+| **CLI / Terminal** | `sqlcmd` | Herramienta oficial de línea de comandos para la ejecución interactiva o por lotes de archivos `.sql`. |
 
 ---
 
-## 2. Instalación de Herramientas
+## 2. Instalación de SQL Server 2022 Express y sqlcmd
 
-### Opción A: Instalación de `sqlcmd` (Microsoft SQL Server CLI)
+### Paso 1: Instalación del Motor SQL Server 2022 Express
 
-Para ejecutar código T-SQL nativo en PowerShell mediante `sqlcmd`:
+Abre una ventana de PowerShell como Administrador y ejecuta el siguiente comando mediante Windows Package Manager (`winget`):
 
-1. Abre PowerShell como Administrador e instala `sqlcmd` usando Windows Package Manager (`winget`):
-   ```powershell
-   winget install Microsoft.Sqlcmd
-   ```
-2. Verifica la instalación ejecutando:
-   ```powershell
-   sqlcmd -?
-   ```
-
-*(Nota: Si usas SQL Server Express o LocalDB, asegúrate de tener iniciado el servicio de SQL Server).*
-
----
-
-### Opción B: Instalación de `sqlite3` CLI
-
-1. Instala `sqlite3` mediante `winget`:
-   ```powershell
-   winget install SQLite.SQLite
-   ```
-2. O bien descarga los binarios de la página oficial de SQLite y agrega la carpeta al `PATH` de Windows.
-
----
-
-## 3. Guía de Ejecución en Terminal (PowerShell)
-
-### A. Ejecutar consultas SQL de forma interactiva (Modo Consola)
-
-#### Usando `sqlcmd` (T-SQL / SQL Server):
 ```powershell
-# Conectarse a una instancia local (ej. LocalDB o SQL Server local)
-sqlcmd -S "(localdb)\MSSQLLocalDB" -d master
+winget install Microsoft.SQLServer.2022.Express
+```
 
-# Una vez dentro del prompt 1>, escribe tus comandos y finaliza con 'GO':
-1> CREATE DATABASE banco_db;
+*(Alternativamente, puedes realizar la descarga directa desde el sitio oficial de Microsoft: [SQL Server 2022 Express Downloads](https://www.microsoft.com/es-es/sql-server/sql-server-downloads)).*
+
+### Paso 2: Verificación de la herramienta `sqlcmd`
+
+Comprueba que el comando `sqlcmd` esté disponible en la terminal ejecutando:
+
+```powershell
+sqlcmd -?
+```
+
+---
+
+## 3. Administración y Verificación de Servicios SQL en PowerShell
+
+Antes de conectarte, es esencial verificar qué motores e instancias SQL están activos en tu equipo y saber cómo iniciarlos o detenerlos desde PowerShell.
+
+### Paso 1: Ver los Servicios SQL Activos e Instalados
+
+Abre PowerShell y ejecuta el siguiente comando para auditar el estado de los servicios de SQL Server:
+
+```powershell
+Get-Service -Name "*SQL*"
+```
+
+#### Ejemplo de salida en PowerShell:
+```text
+Status   Name               DisplayName                           
+------   ----               -----------                           
+Running  MSSQL$SQLEXPRESS   SQL Server (SQLEXPRESS)               
+Stopped  SQLAgent$SQLEXP... SQL Server Agent (SQLEXPRESS)         
+Running  SQLBrowser         SQL Server Browser                    
+```
+
+* Si `MSSQL$SQLEXPRESS` figura como **`Running`**, el servicio ya está listo para aceptar conexiones.
+* Si figura como **`Stopped`**, debes iniciarlo según el siguiente paso.
+
+---
+
+### Paso 2: Iniciar o Detener el Servicio SQL Server Express
+
+Si el servicio está detenido, ejecútalo desde PowerShell (modo Administrador):
+
+#### Iniciar el servicio SQL Server Express:
+```powershell
+# Usando Cmdlet nativo de PowerShell
+Start-Service -Name "MSSQL$SQLEXPRESS"
+
+# O mediante comando NET clásico:
+net start MSSQL$SQLEXPRESS
+```
+
+#### Detener el servicio:
+```powershell
+Stop-Service -Name "MSSQL$SQLEXPRESS"
+# O bien:
+net stop MSSQL$SQLEXPRESS
+```
+
+---
+
+### Paso 3: Gestión de Instancias de LocalDB (`MSSQLLocalDB`)
+
+Si utilizas LocalDB (instancia ligera de desarrollo integrada en Visual Studio / SQL Tools), puedes verificar e iniciar su estado con la CLI `sqllocaldb`:
+
+```powershell
+# Ver las instancias de LocalDB existentes y su estado
+sqllocaldb info
+
+# Ver el detalle de la instancia principal MSSQLLocalDB
+sqllocaldb info MSSQLLocalDB
+
+# Iniciar la instancia MSSQLLocalDB
+sqllocaldb start MSSQLLocalDB
+
+# Detener la instancia
+sqllocaldb stop MSSQLLocalDB
+```
+
+---
+
+## 4. Guía de Ejecución en PowerShell mediante `sqlcmd`
+
+### ⚠️ Solución al Error Común en PowerShell: *"The system cannot find the file specified"*
+
+En versiones recientes de `sqlcmd` (CLI basada en Go v16+), ejecutar:
+`sqlcmd -S ".\SQLEXPRESS" -E -d master`
+puede arrojar el error: `The system cannot find the file specified.`
+
+**¿Por qué sucede?** En PowerShell, la secuencia `".\SQLEXPRESS"` entre comillas dobles es interpretada por el parser como un intento de ejecutar/abrir un archivo en el directorio actual.
+
+**Solución Sintáctica Recomendada:** Usar comillas simples `' .\SQLEXPRESS '` o la palabra clave `"localhost\SQLEXPRESS"`:
+
+```powershell
+# Opción Recomendada A (localhost):
+sqlcmd -S "localhost\SQLEXPRESS" -E -d master
+
+# Opción Recomendada B (comillas simples):
+sqlcmd -S '.\SQLEXPRESS' -E -d master
+
+# Opción Recomendada C (LocalDB):
+sqlcmd -S "(localdb)\MSSQLLocalDB" -d master
+```
+
+---
+
+### A. Ejecución de Consultas Interactivas (Modo REPL)
+
+Para abrir la consola interactiva T-SQL en directo:
+
+```powershell
+sqlcmd -S "localhost\SQLEXPRESS" -E -d master
+```
+
+#### Ejemplo de sesión interactiva en la consola `sqlcmd`:
+```text
+1> CREATE DATABASE banco_itau;
 2> GO
-3> USE banco_db;
+3> USE banco_itau;
 4> GO
-5> SELECT GETDATE() AS fecha_actual;
+5> SELECT @@VERSION AS version_sqlserver;
 6> GO
 7> QUIT
 ```
 
-#### Usando `sqlite3`:
-```powershell
-# Abrir o crear una base de datos local llamada banco.db
-sqlite3 banco.db
+---
 
-# Escribir comandos directamente finalizando con punto y coma (;):
-sqlite> CREATE TABLE prueba (id INT, nombre TEXT);
-sqlite> INSERT INTO prueba VALUES (1, 'Carlos');
-sqlite> SELECT * FROM prueba;
-sqlite> .exit
+### B. Ejecución de Archivos Preprogramados (`.sql`)
+
+Para ejecutar un script `.sql` completo del curso y procesar todas sus sentencias de forma automática:
+
+#### 1. Ejecutar el script del Día 1:
+```powershell
+sqlcmd -S "localhost\SQLEXPRESS" -E -d master -i .\dia-01-sql-core\ejercicio_practico.sql
+```
+
+#### 2. Redireccionar el resultado de la ejecución a un archivo de salida (.txt):
+```powershell
+sqlcmd -S "localhost\SQLEXPRESS" -E -d master -i .\dia-01-sql-core\ejercicio_practico.sql -o .\resultado_ejecucion_dia1.txt
+```
+
+#### 3. Ejecutar una consulta directa de una sola línea (Parámetro `-Q`):
+```powershell
+sqlcmd -S "localhost\SQLEXPRESS" -E -d master -Q "SELECT name, create_date FROM sys.databases;"
 ```
 
 ---
 
-### B. Ejecutar scripts preprogramados (`.sql`) desde PowerShell
+## 5. Conexión Programática desde Python a SQL Server Express
 
-#### 1. Ejecutar un archivo `.sql` con `sqlcmd`:
-```powershell
-# Sintaxis: sqlcmd -S <servidor> -d <base_datos> -i <archivo.sql>
-sqlcmd -S "(localdb)\MSSQLLocalDB" -d banco_db -i .\dia-01-sql-core\ejercicio_practico.sql
-```
+Si deseas conectar tus scripts de Python a la instancia local de SQL Server Express utilizando `pyodbc` y `sqlalchemy`:
 
-#### 2. Guardar el resultado de la ejecución en un archivo de texto de salida:
-```powershell
-sqlcmd -S "(localdb)\MSSQLLocalDB" -d banco_db -i .\dia-01-sql-core\ejercicio_practico.sql -o .\resultado_dia1.txt
-```
+```python
+import pandas as pd
+import urllib
+from sqlalchemy import create_engine
 
-#### 3. Ejecutar una consulta directa en una sola línea de PowerShell (parámetro `-Q`):
-```powershell
-sqlcmd -S "(localdb)\MSSQLLocalDB" -d banco_db -Q "SELECT TOP 5 * FROM clientes_banco;"
-```
+# String de conexión para SQL Server Express con Windows Authentication
+conn_str = (
+    "DRIVER={ODBC Driver 18 for SQL Server};"
+    "SERVER=localhost\\SQLEXPRESS;"
+    "DATABASE=master;"
+    "Trusted_Connection=yes;"
+    "TrustServerCertificate=yes;"
+)
 
-#### 4. Ejecutar un archivo `.sql` con `sqlite3`:
-```powershell
-Get-Content .\dia-01-sql-core\ejercicio_practico.sql | sqlite3 banco.db
+params = urllib.parse.quote_plus(conn_str)
+engine = create_engine(f"mssql+pyodbc:///?odbc_connect={params}")
+
+# Probar lectura directa a DataFrame
+df_bases = pd.read_sql("SELECT name, create_date FROM sys.databases;", engine)
+print(df_bases)
 ```
 
 ---
 
-## 4. Ejecución Inmediata mediante Script de Soporte (`run_sql.py`)
+## 6. Herramienta Auxiliar Alternativa (`run_sql.py`)
 
-Si no deseas configurar servidores de SQL Server en tu máquina, este repositorio incluye el script `run_sql.py` en la carpeta `install/` que utiliza el motor embebido de Python para ejecutar cualquier archivo `.sql`:
+Si necesitas probar un archivo `.sql` de forma rápida en entornos donde no tengas permisos de administrador para iniciar el servicio de SQL Server, puedes utilizar el script de soporte en Python incluido en esta carpeta (que utiliza SQLite en memoria):
 
-### Modos de uso de `run_sql.py`:
+```powershell
+# Ejecución directa con Python
+python .\install\run_sql.py .\dia-01-sql-core\ejercicio_practico.sql
 
-1. **Ejecutar un archivo `.sql` completo:**
-   ```powershell
-   python .\install\run_sql.py .\dia-01-sql-core\ejercicio_practico.sql
-   ```
+# Consola interactiva en Python
+python .\install\run_sql.py -i
+```
 
-2. **Modo consola interactiva REPL (para escribir SQL en vivo):**
-   ```powershell
-   python .\install\run_sql.py -i
-   ```

@@ -7,9 +7,10 @@ Bienvenido al Día 2 del Plan Intensivo de Preparación Acelerada para Evaluaci�
 ## Objetivos del Día
 1. Dominar todos los tipos de uniones relacionales: `INNER`, `LEFT`, `RIGHT`, `FULL OUTER` y `CROSS JOIN`.
 2. Resolver agregaciones con `GROUP BY`, `HAVING` y funciones integradas de fecha (`DATEDIFF`, `DATEADD`) y conversión (`CAST`, `CONVERT`).
-3. Construir Subqueries complejas en cláusulas `WHERE` y `FROM`.
-4. Crear y mantener Vistas (`CREATE VIEW`).
-5. Comprender los principios fundamentales de SQL Tuning (índices clustered/non-clustered, index scan vs index seek).
+3. Construir **Funciones de Ventana (Window Functions)**: `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`, `LAG()`, `LEAD()` y sumas acumuladas (`OVER (PARTITION BY ... ORDER BY ...)`).
+4. Escribir **Common Table Expressions (CTEs - `WITH ... AS`)** y utilizar **Tablas Temporales (`#temp`)**.
+5. Construir Subqueries complejas y Vistas (`CREATE VIEW`).
+6. Comprender los principios fundamentales de SQL Tuning (índices clustered/non-clustered, index scan vs index seek, sargability).
 
 ---
 
@@ -91,7 +92,132 @@ HAVING AVG(b.saldo_actual) > 500000;
 
 ---
 
-### 3. Subqueries y Vistas (`CREATE VIEW`)
+### 3. Funciones de Ventana (Window Functions)
+
+A diferencia de `GROUP BY` (que colapsa múltiples filas en una sola), las **Funciones de Ventana** realizan cálculos sobre un conjunto de filas relacionadas sin colapsar el resultado, manteniendo cada fila individual intacta.
+
+#### Sintaxis General:
+`FUNCION() OVER (PARTITION BY columna_grupo ORDER BY columna_orden)`
+
+* **`PARTITION BY`**: Divide el dataset en ventanas / particiones lógicas (opcional).
+* **`ORDER BY`**: Define el orden dentro de cada partición (obligatorio para ranking y desplazamiento).
+
+#### A. Funciones de Ranking: `ROW_NUMBER()`, `RANK()`, `DENSE_RANK()`
+* `ROW_NUMBER()`: Asigna un número secuencial único (1, 2, 3, 4) sin empates.
+* `RANK()`: Asigna el mismo número a valores idénticos, pero **salta** posiciones en caso de empate (1, 2, 2, 4).
+* `DENSE_RANK()`: Asigna el mismo número a valores idénticos **sin saltar** posiciones (1, 2, 2, 3).
+
+```sql
+-- Obtener la última transacción por cliente usando ROW_NUMBER()
+WITH TransaccionesNumeradas AS (
+    SELECT 
+        transaccion_id,
+        cliente_id,
+        monto,
+        fecha_transaccion,
+        ROW_NUMBER() OVER (
+            PARTITION BY cliente_id 
+            ORDER BY fecha_transaccion DESC
+        ) AS rn
+    FROM Transacciones
+)
+SELECT transaccion_id, cliente_id, monto, fecha_transaccion
+FROM TransaccionesNumeradas
+WHERE rn = 1; -- Solo la transacción más reciente por cliente
+```
+
+#### B. Funciones de Desplazamiento: `LAG()` y `LEAD()`
+* `LAG(columna, offset, default)`: Accede al valor de una fila **anterior** dentro de la ventana. Excelente para calcular variaciones entre transacciones consecutivas.
+* `LEAD(columna, offset, default)`: Accede al valor de una fila **posterior**.
+
+```sql
+-- Calcular la variación de saldo respecto a la transacción anterior
+SELECT 
+    cliente_id,
+    fecha_transaccion,
+    monto AS monto_actual,
+    LAG(monto, 1, 0) OVER (
+        PARTITION BY cliente_id 
+        ORDER BY fecha_transaccion ASC
+    ) AS monto_anterior,
+    monto - LAG(monto, 1, 0) OVER (
+        PARTITION BY cliente_id 
+        ORDER BY fecha_transaccion ASC
+    ) AS diferencia_monto
+FROM Transacciones;
+```
+
+#### C. Agregaciones Acumuladas (Running Totals)
+```sql
+-- Saldo acumulado (Running Total) por cliente a lo largo del tiempo
+SELECT 
+    cliente_id,
+    fecha_transaccion,
+    monto,
+    SUM(monto) OVER (
+        PARTITION BY cliente_id 
+        ORDER BY fecha_transaccion ASC
+    ) AS saldo_acumulado
+FROM Transacciones;
+```
+
+---
+
+### 4. Common Table Expressions (CTEs) y Tablas Temporales
+
+#### A. CTEs (`WITH ... AS`)
+Una **CTE** es un conjunto de resultados temporal nombrado que existe únicamente durante la ejecución de una única sentencia (`SELECT`, `INSERT`, `UPDATE` o `DELETE`). Es superior a las subconsultas en la cláusula `FROM` porque mejora significativamente la legibilidad y permite referencias múltiples o recursividad.
+
+```sql
+-- Estructura de CTE múltiple
+WITH ResumenSaldos AS (
+    SELECT 
+        cliente_id,
+        SUM(saldo_actual) AS total_saldo
+    FROM Cuentas
+    GROUP BY cliente_id
+),
+ClientesVIP AS (
+    SELECT cliente_id, nombre_completo, segmento
+    FROM Clientes
+    WHERE segmento = 'Premium'
+)
+SELECT 
+    v.cliente_id,
+    v.nombre_completo,
+    COALESCE(s.total_saldo, 0) AS saldo_total
+FROM ClientesVIP v
+LEFT JOIN ResumenSaldos s ON v.cliente_id = s.cliente_id
+WHERE COALESCE(s.total_saldo, 0) > 1000000;
+```
+
+#### B. Tablas Temporales (`#temp`)
+Las tablas temporales físicas se almacenan en la base de datos de sistema `tempdb` y persisten durante toda la sesión del usuario. Permiten crear índices para optimizar procesamientos pesados de múltiples pasos:
+
+```sql
+-- Crear e insertar en tabla temporal de sesión (#)
+CREATE TABLE #ResumenRiesgo (
+    cliente_id INT PRIMARY KEY,
+    score_crediticio INT,
+    total_deuda DECIMAL(18, 2)
+);
+
+INSERT INTO #ResumenRiesgo (cliente_id, score_crediticio, total_deuda)
+SELECT c.cliente_id, c.score_crediticio, SUM(p.monto_pendiente)
+FROM Clientes c
+INNER JOIN Prestamos p ON c.cliente_id = p.cliente_id
+GROUP BY c.cliente_id, c.score_crediticio;
+
+-- Consultar la tabla temporal
+SELECT * FROM #ResumenRiesgo WHERE total_deuda > 500000;
+
+-- Eliminar explícitamente la tabla al finalizar
+DROP TABLE #ResumenRiesgo;
+```
+
+---
+
+### 5. Subqueries y Vistas (`CREATE VIEW`)
 
 * **Subquery escalar:** Retorna un único valor de una fila/columna. Se puede usar en `SELECT` o `WHERE`.
 * **Subquery correlacionada:** La subconsulta referencia columnas de la consulta externa y se evalúa por cada fila de esta.
@@ -119,7 +245,7 @@ WHERE saldo_total < (SELECT AVG(saldo_actual) FROM Cuentas);
 
 ---
 
-### 4. Nociones Básicas de SQL Tuning
+### 6. Nociones Básicas de SQL Tuning
 
 * **Index Scan vs Index Seek:**
   * **Index Seek:** El motor accede directamente a las páginas de datos mediante un árbol B-Tree utilizando un índice adecuado. (Rápido y Óptimo).
@@ -127,3 +253,4 @@ WHERE saldo_total < (SELECT AVG(saldo_actual) FROM Cuentas);
 * **Sargability (Search Argumentable):** Evita aplicar funciones sobre columnas filtradas en la cláusula `WHERE`.
   * *Non-Sargable:* `WHERE YEAR(fecha_transaccion) = 2026` (Forza Table Scan).
   * *Sargable:* `WHERE fecha_transaccion >= '2026-01-01' AND fecha_transaccion < '2027-01-01'` (Permite Index Seek).
+

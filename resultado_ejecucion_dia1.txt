@@ -1,0 +1,2 @@
+Msg 2714, Level 16, State 6, Server carlobeni\SQLEXPRESS, Line 9
+There is already an object named 'clientes_banco' in the database.
