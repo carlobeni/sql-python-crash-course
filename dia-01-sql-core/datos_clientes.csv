@@ -1,0 +1,6 @@
+cliente_id,num_documento,nombre_completo,segmento,fecha_alta,saldo_cuenta
+1001,20358889991,María González,Premium,2025-01-15,2500000.00
+1002,27401112224,Juan Pedro Martínez,Retail,2025-03-20,45000.00
+1003,30712223338,Tech Solutions S.A.,Corporate,2024-06-10,15800000.00
+1004,23315556669,Ana Lucía Fernández,Private,2025-11-05,1200000.00
+1005,20184445552,Roberto Gómez,Retail,2026-02-01,0.00
