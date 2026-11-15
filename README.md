@@ -8,6 +8,7 @@ Repositorio de preparación acelerada para evaluaciones técnicas de nivel profe
 
 El contenido está organizado en 7 jornadas diarias de estudio práctico junto con un módulo de instalación y soporte por terminal:
 
+* **[2. Resumen.md](file:///d:/TestSQLPython/2.%20Resumen.md)**: **Guía Definitiva de Referencia Técnica** en Python Base (String, List, Tuple, Set, Dict), Manejo de Archivos, módulo `math`, NumPy, Pandas, Matplotlib, SciPy y Scikit-Learn con ejemplos explicados y código ejecutable.
 * **[install/](file:///d:/TestSQLPython/install/README.md)**: Guía de configuración, administración de servicios SQL Server (`Get-Service`, `Start-Service`), sintaxis correcta de `sqlcmd` en PowerShell, conexión con Python (`sqlalchemy`/`pyodbc`) y ejecutor auxiliar `run_sql.py`.
 * **[dia-01-sql-core/](file:///d:/TestSQLPython/dia-01-sql-core/README.md)**: Modelado E/R, DDL/DML, Operadores, Manejo de NULLs, Orden de Ejecución Lógica e Ingesta de CSVs.
 * **[dia-02-sql-avanzado/](file:///d:/TestSQLPython/dia-02-sql-avanzado/README.md)**: Uniones (`INNER`, `LEFT`, `RIGHT`, `FULL`), Trampa de filtros en Joins, **Funciones de Ventana** (`ROW_NUMBER`, `RANK`, `DENSE_RANK`, `LAG`, `LEAD`, acumulados), **CTEs (`WITH`) y Tablas Temporales (`#temp`)**, Subqueries, Vistas y Tuning.
